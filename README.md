@@ -17,60 +17,93 @@ $ python svcdrift.py --self-test
 svcdrift self-test: no arcpy, no portal, a stub server on 127.0.0.1
 --------------------------------------------------------------------
 PASS  a rest type is already canonical
+...
 PASS  arcpy's Float is a single, not a double  <-- pinned defect
+...
 PASS  arcpy's OID is esriFieldTypeOID  <-- pinned defect
+...
 PASS  a type this file has never heard of is passed through, so a newer server does not read as a schema change  <-- pinned defect
 ...
 PASS  an arcpy domain NAME against the service's full coded value list of the same name is not a change, because only the name is knowable on both sides  <-- pinned defect
+...
 PASS  latestWkid wins over wkid: a service reports pennsylvania state plane south as Esri's 102729 and EPSG's 2272 together, and only the second one means anything to anybody else  <-- pinned defect
+...
 PASS  and so is the one a published layer keeps inside its extent, which is the only place a real service puts it  <-- pinned defect
 ...
 PASS  but the comparison reads only the fields that hold data  <-- pinned defect
+...
 PASS  a source whose object id is FID and a service whose object id is OBJECTID have two fields, not four  <-- pinned defect
 PASS  so the object id is NOT reported as removed  <-- pinned defect
 PASS  and the service's object id is not reported as added  <-- pinned defect
+...
 PASS  the same rescue applies to the global id field  <-- pinned defect
 ...
 PASS  and an alias-only change is a WARNING, never a break  <-- pinned defect
+...
 PASS  a small integer republished as an integer is reported as a widening, not as a type change  <-- pinned defect
+...
 PASS  the two fixtures differ in exactly six ways and all six are found
 PASS  and they are the six that were seeded, with no seventh
+...
 PASS  and a field the service does not have is a BREAK  <-- pinned defect
+...
 PASS  and a field the source does not have is a WARNING  <-- pinned defect
+...
 PASS  and every removal becomes an addition  <-- pinned defect
 ...
 PASS  warnings alone exit 0, so a run does not fail on an alias  <-- pinned defect
+...
 PASS  --strict makes a warning fail too  <-- pinned defect
 ...
 PASS  but a republish that reverses every key and every class list, drops an alpha, adds float noise, spells defaults out, changes the case of the field and adds authoringInfo is not drift  <-- pinned defect
+...
 PASS  a class drawn in another colour is a BREAK: the legend now says something false about every feature in it  <-- pinned defect
+...
 PASS  a class that is gone is a BREAK, and names its value  <-- pinned defect
+...
 PASS  a layer that stops drawing at a scale where it drew is a BREAK  <-- pinned defect
+...
 PASS  a colour ramp whose top stop is now blue is a break: every feature near the top is drawn in a colour the legend gave another value  <-- pinned defect
+...
 PASS  a colorInfo and a sizeInfo listed in the other order, with the colour stops reversed too, draw the same map and are not drift  <-- pinned defect
 PASS  a visual variable is matched by its type, so a colour ramp moved to another field is a break named as that and not as a position in a list  <-- pinned defect
+...
 PASS  a dot density attribute moved to another field is a break, not plain json that exits 0  <-- pinned defect
+...
 PASS  a class for 0.3 written back as 0.30000000000000004 is the same class, not one removed and one added  <-- pinned defect
+...
 PASS  class breaks listed in another order, with float noise on one and a classMinValue the server wrote out, are the same breaks  <-- pinned defect
 PASS  a break that moved from 5 to 6 is one difference, and the symbols are not then compared against a different range  <-- pinned defect
 ...
 PASS  the snapshot this tool writes carries no token  <-- pinned defect
+...
 PASS  and a service that advertises a field its data does not carry is caught over the wire  <-- pinned defect
+...
 PASS  and the connection error carries no token, although urllib puts the url it could not open into its own message  <-- pinned defect
+...
 PASS  a run against a service that drifted exits 1  <-- pinned defect
+...
 PASS  --probe on its own fails when the data does not carry an advertised field  <-- pinned defect
+...
 PASS  a service whose renderer drifted from another service's exits 1 over the wire  <-- pinned defect
+...
 PASS  a service republished with nothing but JSON noise in its drawingInfo exits 0 and prints no differences  <-- pinned defect
+...
 PASS  the --service token is not sent to a --source on another host, so a secured source there is refused  <-- pinned defect
+...
 PASS  --source-token gives the source host a token of its own
+...
 PASS  and --schema-only never reads it, as version 1.0 did not  <-- pinned defect
+PASS  a service that answers {} exits 2 and writes no baseline, where it read as MATCH, exited 0 and wrote {} as the baseline  <-- pinned defect
+...
 PASS  an --out that cannot be written exits 2, not 1, which is the code for a break  <-- pinned defect
+...
 PASS  a service that could not be read exits 2, not 1: no answer is not the same as no drift  <-- pinned defect
 ...
 PASS  argparse's own usage error exits 64 as documented, not the 2 that means a side could not be read  <-- pinned defect
 ...
 --------------------------------------------------------------------
-842 assertions, 0 failed
+857 assertions, 0 failed
 ```
 
 ## Requirements
@@ -82,7 +115,7 @@ Python 3.9 or newer. Nothing to install and no third-party package.
 `--self-test` all run on a plain `python3` with no geodatabase on the machine at all. The `arcpy`
 import lives inside one function, and the self-test asserts that.
 
-The same 842 assertions pass on Windows (Python 3.13), on Ubuntu (Python 3.12), on ArcGIS Pro's
+The same 857 assertions pass on Windows (Python 3.13), on Ubuntu (Python 3.12), on ArcGIS Pro's
 Python (3.13) and on Python 3.9.
 
 ```
@@ -191,9 +224,10 @@ advertises a schema its own data does not keep.
 
 ## The renderer drifts too
 
-A county's republish batch moved 122 services to a new server. The schema checks passed, the item
-ids matched and every service pointed at the right data. A comparison of the renderers, run
-afterwards, found 30 of the 122 services drawing differently, in 1,354 differences. A parcel drawn
+A county moved its services to a new server in republish batches. The schema checks passed, the
+item ids matched and every service pointed at the right data. A symbology comparison, run
+afterwards, found 30 of the 122 services on the new server that did not match exactly, in 1,354
+differing rows. A parcel drawn
 in the colour of a different status, or placed in the wrong acreage band, is correct data drawn
 wrongly on a public map. Nothing fails, so nothing alerts.
 
@@ -335,11 +369,11 @@ cries wolf on every run is read by nobody.
   - Key order, and the order of the classes, the label classes and the visual variables.
   - The order of the stops of a visual variable. A stop sits on the ramp at its value. Two stops
     on one value keep their order, because that order is the hard edge they make.
-  - Float noise. Two numbers are one number when they differ by no more than 1e-9 of the larger,
-    or by no more than 1e-9 below 1: `math.isclose` with both tolerances set to 1e-9. That takes
-    out `1234.5600000000001` and nothing a person could type. A class break edited from 1000000 to
-    1000001 is a change, whether the server wrote it as `1000000` or `1000000.0`, and so is a
-    scale of 1:100000 that became 1:100001.
+  - Float noise. Two numbers are one number when they differ by no more than 1e-12 of the larger,
+    or by no more than 1e-9 outright: `math.isclose` with `rel_tol=1e-12` and `abs_tol=1e-9`.
+    That takes out `1234.5600000000001`. A class break edited from 1000000 to 1000001 is a change,
+    whether the server wrote it as `1000000` or `1000000.0`, and so is a scale of 1:100000 that
+    became 1:100001.
   - A colour's missing alpha, which is 255, and float noise on a channel, which rounds away. The
     same holds for each colour of a `colorInfo`'s `colors` list.
   - A null, an empty list and an empty object, which say the same as a key that is not there.
@@ -440,11 +474,30 @@ a nightly job has to be able to tell those apart.
   overwrite through the ArcGIS API for Python, is what fixes it.
 - It writes nothing without `--apply`, and the only file it writes is the `--out` baseline. The
   token is never written into it, and never printed: every error message and both urls in the
-  report are passed through a redaction that strips the tokens it was given and any `token=` in a
-  url. A layer definition is redacted before it is parsed and again after, so a token the server
+  report are passed through a redaction that strips the tokens it was given, any `token=` in a
+  url and any user name and password before a url's host. A layer definition is redacted before
+  it is parsed and again after, so a token the server
   echoes back behind a JSON escape, such as `\/` or `\u0053`, is taken out too.
 - A token pasted into a `--service` url as `?token=` is not sent. The query string of a layer url
   is dropped before the read, so pass the token with `--token` or `SVCDRIFT_TOKEN`.
+- A misspelt flag is echoed by `argparse` with the value after it, so a token given to
+  `--tokn` is printed. `SVCDRIFT_TOKEN` keeps a token off the command line.
+- A layer definition with no `fields` list, from the service or from a snapshot, exits 2. A
+  `fields` list that is present and empty is compared as a layer with no fields.
+- A class break or a scale that is `NaN` is refused with exit 2, because it has no place on a
+  ramp. A `NaN` anywhere else in a renderer equals another `NaN`.
+- The number tolerance is relative, so above 1e12 an edit of one unit is read as noise. A class
+  break of 10000000000000 edited to 10000000000001 is not reported.
+- A unique value class for a JSON `null` and one for the text `"None"` are one class, and so are
+  `true` and `"True"`. A renderer that has both is refused with exit 2.
+- A layer made invisible is a warning, not a break. A `transparency` of 100, a symbol alpha of 0
+  and an opacity ramp at 0 are compared as how the map looks, not as what a feature means.
+- With `--out` naming the same file as `--source`, `--apply` replaces the baseline even when the
+  run found a break, so the next run compares against the drifted service.
+- The `--out` file is written in place, so a run stopped part way through writing leaves it cut
+  short.
+- A response is read into memory whole. A body too large for memory ends in a traceback and
+  exit 1, not in exit 2.
 
 ## Contributing
 

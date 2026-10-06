@@ -1659,13 +1659,18 @@ def redact(text, *secrets):
     one happens without anybody writing a print statement. A secret is also
     taken out in the url-encoded form the request sent it in, which an error
     envelope may echo back. A token= value stops at a backslash, so a JSON
-    body redacted before it is parsed keeps its escaped quotes.
+    body redacted before it is parsed keeps its escaped quotes. A user name
+    and password before the host of any url are taken out too, whatever its
+    scheme and however many slashes it has: has_userinfo() refuses only an
+    http one, and an ftp url or an https:/ with one slash was echoed whole.
     """
     out = "%s" % (text,)
     for secret in secrets:
         if secret:
             for form in (secret, urllib.parse.quote_plus(secret)):
                 out = out.replace(form, REDACTED)
+    out = re.sub(r"(?i)\b([a-z][a-z0-9+.\-]*:/+)[^/?#\s@'\"\\]+@",
+                 r"\1" + REDACTED + "@", out)
     return re.sub(r"(?i)(token=)[^&\s'\"\\]+", r"\1" + REDACTED, out)
 
 
@@ -1855,13 +1860,28 @@ def fetch_json(url, params, token=None, timeout=HTTP_TIMEOUT):
     return json.loads(redact(json.dumps(payload, ensure_ascii=False), token))
 
 
+def require_fields(payload, where):
+    """The payload, or a RuntimeError when it has no fields list at all.
+
+    The pure core reads a definition with no fields key as a layer with no
+    fields. From the wire or a file that is a side that could not be read: a
+    server that answered {} read as MATCH, exited 0 and was written out as
+    the baseline every later run then matched.
+    """
+    if isinstance(payload, dict) and payload.get("fields") is None:
+        raise RuntimeError("%s has no fields list, so there is no layer "
+                           "definition to compare. Name a feature layer or a "
+                           "table." % (where,))
+    return payload
+
+
 def read_service(url, token=None, timeout=HTTP_TIMEOUT):
     """The layer definition of a published layer."""
     payload = fetch_json(url, {}, token, timeout)
     hint = service_root_hint(payload)
     if hint:
         raise RuntimeError("%s: %s" % (url, hint))
-    return payload
+    return require_fields(payload, url)
 
 
 def query_one(url, token=None, timeout=HTTP_TIMEOUT, count=1):
@@ -1887,8 +1907,8 @@ def read_snapshot(path):
     except OSError as exc:
         raise RuntimeError("%s could not be read: %s" % (path, exc))
     if isinstance(payload, dict) and isinstance(payload.get("layer"), dict):
-        return payload["layer"]
-    return payload
+        return require_fields(payload["layer"], path)
+    return require_fields(payload, path)
 
 
 def snapshot_document(layer, url, when=None):
@@ -4069,6 +4089,13 @@ def self_test():
     check(redact(ValueError("token=abc")) == "token=%s" % REDACTED,
           "an exception object is redacted, which is how urllib's own message "
           "is handled  <-- pinned defect")
+    check(redact("ftp://u:pw@h/x and https:/u:pw@h/y")
+          == "ftp://%s@h/x and https:/%s@h/y" % (REDACTED, REDACTED),
+          "a password before the host is taken out of any url, an ftp one "
+          "and an https:/ with one slash included  <-- pinned defect")
+    check(redact("mail a@b.org, see http://h/x?next=a@b")
+          == "mail a@b.org, see http://h/x?next=a@b",
+          "and an @ that is not before a host is left alone")
 
     # ---- urls
     check(is_http_url("https://gis/x/0") is True, "an https url is one")
@@ -4354,6 +4381,7 @@ def self_test():
             "/republished": (200, "application/json",
                              json.dumps(STYLED_AGAIN)),
             "/listy/query": (200, "application/json", "[]"),
+            "/nofields": (200, "application/json", "{}"),
             "/badstyle": (200, "application/json",
                           json.dumps(dict(SOURCE, drawingInfo="renderer"))),
             "/unicode": (200, "application/json", json.dumps(
@@ -4973,6 +5001,24 @@ def self_test():
                  "https://svcuser:%s@gis.example/x/0" % password])
             check(code == 64 and password not in printed + said,
                   "and so is a --source url with one")
+            code, printed, said = run(
+                ["--service", "gis.example/x/0?token=%s" % password,
+                 "--probe"])
+            check(code == 64 and password not in printed + said,
+                  "a --service url with no scheme is refused without "
+                  "printing the token in it  <-- pinned defect")
+            code, printed, said = run(
+                ["--service", "ftp://svcuser:%s@gis.example/x/0" % password,
+                 "--probe"])
+            check(code == 64 and password not in printed + said,
+                  "nor the password in an ftp url  <-- pinned defect")
+            code, printed, said = run(
+                ["--service", base + "/layer", "--source",
+                 "https:/svcuser:%s@gis.example/x/0" % password])
+            check(code == 2 and password not in printed + said,
+                  "and a --source https:/ url with one slash, read as a "
+                  "dataset, fails without printing its password  "
+                  "<-- pinned defect")
             check(has_userinfo(" HTTPS://svcuser@gis.example/x/0")
                   and not has_userinfo(base + "/layer?next=a@b")
                   and not has_userinfo(None),
@@ -5004,6 +5050,23 @@ def self_test():
                                        "--source", baseline, "--schema-only"])
             check(code == 0 and "VERDICT: MATCH" in printed,
                   "and --schema-only never reads it, as version 1.0 did not  "
+                  "<-- pinned defect")
+            empty_out = os.path.join(work, "empty_baseline.json")
+            code, printed, said = run(["--service", base + "/nofields",
+                                       "--out", empty_out, "--apply"])
+            check(code == 2 and "no fields list" in said
+                  and not os.path.exists(empty_out),
+                  "a service that answers {} exits 2 and writes no baseline, "
+                  "where it read as MATCH, exited 0 and wrote {} as the "
+                  "baseline  <-- pinned defect")
+            null_layer = os.path.join(work, "null_layer.json")
+            with open(null_layer, "w", encoding="utf-8") as handle:
+                json.dump({"svcdrift": VERSION, "layer": None}, handle)
+            code, printed, said = run(["--service", base + "/origin",
+                                       "--source", null_layer])
+            check(code == 2,
+                  "and a snapshot whose layer is null exits 2, where every "
+                  "service field read as added and the run exited 0  "
                   "<-- pinned defect")
             code, printed, said = run(["--service", base + "/layer",
                                        "--out", work, "--apply"])
@@ -5305,9 +5368,11 @@ def main(argv=None):
               "tool without a service.", file=sys.stderr)
         return 64
     if not is_http_url(args.service):
+        # Redacted: the scheme is checked before the tokens are known, and a
+        # url with its scheme missing still carries its ?token= or password.
         print("error: --service must be an http or https url, got %r. The "
               "service side is always the published one; a geodatabase path "
-              "goes in --source." % args.service, file=sys.stderr)
+              "goes in --source." % redact(args.service), file=sys.stderr)
         return 64
     if args.source is not None and not args.source.strip():
         print("error: --source is empty.", file=sys.stderr)
