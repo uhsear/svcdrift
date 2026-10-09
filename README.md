@@ -100,10 +100,12 @@ PASS  an --out that cannot be written exits 2, not 1, which is the code for a br
 ...
 PASS  a service that could not be read exits 2, not 1: no answer is not the same as no drift  <-- pinned defect
 ...
+PASS  a unique prefix of --apply is refused, so a short flag cannot turn on the write  <-- pinned defect
+...
 PASS  argparse's own usage error exits 64 as documented, not the 2 that means a side could not be read  <-- pinned defect
 ...
 --------------------------------------------------------------------
-857 assertions, 0 failed
+858 assertions, 0 failed
 ```
 
 ## Requirements
@@ -115,7 +117,7 @@ Python 3.9 or newer. Nothing to install and no third-party package.
 `--self-test` all run on a plain `python3` with no geodatabase on the machine at all. The `arcpy`
 import lives inside one function, and the self-test asserts that.
 
-The same 857 assertions pass on Windows (Python 3.13), on Ubuntu (Python 3.12), on ArcGIS Pro's
+The same 858 assertions pass on Windows (Python 3.13), on Ubuntu (Python 3.12), on ArcGIS Pro's
 Python (3.13) and on Python 3.9.
 
 ```

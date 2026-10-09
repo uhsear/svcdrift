@@ -5172,6 +5172,8 @@ def self_test():
     refuses(["--apply", "yes"], "--apply takes no value")
     refuses(["--drop-everything"], "a flag that does not exist is refused")
     refuses(["--self-test", "--extra"], "and so is a stray argument")
+    refuses(["--ap"], "a unique prefix of --apply is refused, so a short "
+            "flag cannot turn on the write  <-- pinned defect")
 
     def exits(argv):
         noise, sys.stderr = sys.stderr, io.StringIO()
@@ -5304,6 +5306,7 @@ class _Parser(argparse.ArgumentParser):
 def _parse(argv):
     ap = _Parser(
         prog="svcdrift.py",
+        allow_abbrev=False,
         description="Diff a published feature service against the dataset it "
                     "was published from, and exit non-zero rather than call "
                     "two different schemas the same.",
